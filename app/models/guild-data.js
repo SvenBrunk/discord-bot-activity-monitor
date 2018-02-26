@@ -33,20 +33,24 @@ module.exports = class GuildData extends Core.BaseGuildData {
 
         role.members.forEach(member => {
             //don't ask me why, sometimes member is null, hence the if(member) check
-            if (member && !this.users[member.id])
-                this.users[member.id] = new Date();
-
+            if (member && !this.users[member.id]) {
+                this.users[member.id]["firstseen"] = now;
+                this.users[member.id]["lastseen"] = now;
+                this.users[member.id]["messagecount"]=0;
+            }
             else if (this.shouldMarkInactive(member, now)) {
                 this.doMarkInactive(member);
 
                 delete this.users[member.id];
             }
+            else {
+                this.registerOnlineTimes(member, now);
+            }
         });
     }
 
     shouldMarkInactive(member, now) {
-        // @ts-ignore because for whatever reason VSCode thinks .days() isn't available
-        const isNowInactive = new DateDiff(now, Date.parse(this.users[member.id])).days() >= this.inactiveThresholdDays;
+        const isNowInactive = new DateDiff(now, Date.parse(this.users[member.id]["lastseen"])).days() >= this.inactiveThresholdDays;
 
         return !this.memberIsIgnored(member) && isNowInactive;
     }
@@ -83,5 +87,25 @@ module.exports = class GuildData extends Core.BaseGuildData {
     toString() {
         const blacklist = ["id", "users"];
         return JSON.stringify(this, (k, v) => blacklist.indexOf(k) < 0 ? v : undefined, "\t");
+    }
+
+    showMemberStats(member) {
+        var userData = this.users[member.id];
+        return JSON.stringify( {"first seen":userData.firstseen, "last seen":userData.lastseen, "message count":userData.messagecount, "online times":userData.onlinetimes});
+    }
+
+    registerOnlineTimes(member, time) {
+        if(!this.users[member.id]["onlinetimes"]) { this.users[member.id]["onlinetimes"] = {}; this.users[member.id]["onlinetimes"]["current"] = {}; this.users[member.id]["onlinetimes"]["history"] = []; }
+        if(!this.users[member.id]["onlinetimes"]["current"]["from"]) {
+            this.users[member.id]["onlinetimes"]["current"]["from"] = this.users[member.id]["lastseen"];
+        }
+        const stillActive = new DateDiff(time, Date.parse(this.users[member.id]["lastseen"])).minutes() <= 15;
+        if(stillActive) {
+            this.users[member.id]["onlinetimes"]["current"]["until"] = this.users[member.id]["lastseen"];
+        }
+        else {
+            this.users[member.id]["onlinetimes"]["history"].push(this.users[member.id]["onlinetimes"]["current"]);
+            this.users[member.id]["onlinetimes"]["current"] = {};
+        }
     }
 };

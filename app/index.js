@@ -17,7 +17,7 @@ client.on("ready", checkUsersInAllGuilds);
 client.on("message", message => {
     if (message.guild && message.member)
         GuildData.findOne({ guildID: message.guild.id })
-            .then(guildData => registerActivity(message.guild, message.member, guildData));
+            .then(guildData => registerMessage(message.guild, message.member, guildData));
 });
 
 client.on("voiceStateUpdate", member => {
@@ -34,13 +34,28 @@ function checkUsersInAllGuilds() {
 }
 
 function registerActivity(guild, member, guildData) {
+    const now = new Date();
+    
     if (member && guildData && member.id !== client.user.id) {
-        guildData.users[member.id] = new Date(); //store now as the latest date this user has interacted
+        if(!guildData.users[member.id]["firstseen"]) {
+            guildData.users[member.id]["firstseen"] = now;
+        }
+
+        guildData.users[member.id]["lastseen"] = now; //store now as the latest date this user has interacted
 
         if (canManageRoles(guildData)) {
             if (guildData.shouldMarkActive(member))
                 guildData.doMarkActive(member);
         }
+        guildData.save();
+    }
+}
+
+function registerMessage(guild, member, guildData) {
+    registerActivity(guild, member, guildData);
+    if (member && guildData && member.id !== client.user.id) {
+        if(isNaN(guildData.users[member.id]["messagecount"])) { guildData.users[member.id]["messagecount"]=0; }
+        guildData.users[member.id]["messagecount"]++; //increment stored message count
         guildData.save();
     }
 }
