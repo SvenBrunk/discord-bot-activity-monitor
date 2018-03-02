@@ -4,6 +4,8 @@ const Core = require("../core");
 const CronJob = require("cron").CronJob;
 const DiscordUtil = Core.util;
 const GuildData = require("./models/guild-data.js");
+const DateDiff = require("date-diff");
+
 
 // @ts-ignore
 const client = new Core.Client(require("../token.json"), __dirname + "/commands", GuildData);
@@ -37,11 +39,14 @@ function registerActivity(guild, member, guildData) {
     const now = new Date();
     
     if (member && guildData && member.id !== client.user.id) {
-        if(!guildData.users[member.id]["firstseen"]) {
-            guildData.users[member.id]["firstseen"] = now;
-        }
+        if(!guildData.users[member.id]) { guildData.initActivityDatastructure(member, now); }
 
         guildData.users[member.id]["lastseen"] = now; //store now as the latest date this user has interacted
+        guildData.save();
+
+        DiscordUtil.dateLog(`${member.user.username} is now active`);
+
+        registerOnlineTimes(member, now, guildData);
 
         if (canManageRoles(guildData)) {
             if (guildData.shouldMarkActive(member))
@@ -62,4 +67,33 @@ function registerMessage(guild, member, guildData) {
 
 function canManageRoles(guildData) {
     return guildData.allowRoleAddition && guildData.activeRoleID && guildData.activeRoleID.length > 0;
+}
+
+function registerOnlineTimes(member, time, guildData) {
+    initOnlinetimeDatastructure(member, guildData);
+    var stillActive = new DateDiff(time, Date.parse(guildData.users[member.id]["lastseen"])).minutes() <= 15;
+    if(stillActive) {
+        guildData.users[member.id]["onlinetimes"]["current"]["until"] = guildData.users[member.id]["lastseen"];
+    }
+    else {
+        guildData.users[member.id]["onlinetimes"]["history"].push(guildData.users[member.id]["onlinetimes"]["current"]);
+        guildData.users[member.id]["onlinetimes"]["current"] = {};
+        DiscordUtil.dateLog(`${member.user.username} status changed to inactive`);
+    }
+    guildData.save();
+}
+
+function initOnlinetimeDatastructure(member, guildData) {
+    if (!guildData.users[member.id]["onlinetimes"]) {
+        guildData.users[member.id]["onlinetimes"] = {};
+        guildData.users[member.id]["onlinetimes"]["current"] = {};
+        guildData.users[member.id]["onlinetimes"]["history"] = [];
+    }
+    if (!guildData.users[member.id]["onlinetimes"]["current"]["from"]) {
+        guildData.users[member.id]["onlinetimes"]["current"]["from"] = guildData.users[member.id]["lastseen"];
+    }
+    if (!guildData.users[member.id]["onlinetimes"]["current"]["until"]) {
+        guildData.users[member.id]["onlinetimes"]["current"]["until"] = guildData.users[member.id]["lastseen"];
+    }
+    guildData.save();
 }

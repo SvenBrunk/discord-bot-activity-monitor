@@ -33,20 +33,24 @@ module.exports = class GuildData extends Core.BaseGuildData {
 
         role.members.forEach(member => {
             //don't ask me why, sometimes member is null, hence the if(member) check
-            if (member && !this.users[member.id]) {
-                this.users[member.id]["firstseen"] = now;
-                this.users[member.id]["lastseen"] = now;
-                this.users[member.id]["messagecount"]=0;
-            }
-            else if (this.shouldMarkInactive(member, now)) {
-                this.doMarkInactive(member);
-
-                delete this.users[member.id];
-            }
-            else {
-                this.registerOnlineTimes(member, now);
+            if (member) {
+                if(!this.users[member.id]) {
+                    this.initActivityDatastructure(member, now);
+                }
+                else if (this.shouldMarkInactive(member, now)) {
+                    this.doMarkInactive(member);
+    
+                    delete this.users[member.id];
+                }
             }
         });
+    }
+
+    initActivityDatastructure(member, now) {
+        this.users[member.id]["firstseen"] = now;
+        this.users[member.id]["lastseen"] = now;
+        this.users[member.id]["messagecount"] = 0;
+        DiscordUtil.dateLog(`${member.name} is now active`);
     }
 
     shouldMarkInactive(member, now) {
@@ -90,22 +94,11 @@ module.exports = class GuildData extends Core.BaseGuildData {
     }
 
     showMemberStats(member) {
-        var userData = this.users[member.id];
-        return JSON.stringify( {"first seen":userData.firstseen, "last seen":userData.lastseen, "message count":userData.messagecount, "online times":userData.onlinetimes});
-    }
-
-    registerOnlineTimes(member, time) {
-        if(!this.users[member.id]["onlinetimes"]) { this.users[member.id]["onlinetimes"] = {}; this.users[member.id]["onlinetimes"]["current"] = {}; this.users[member.id]["onlinetimes"]["history"] = []; }
-        if(!this.users[member.id]["onlinetimes"]["current"]["from"]) {
-            this.users[member.id]["onlinetimes"]["current"]["from"] = this.users[member.id]["lastseen"];
+        if(this.users[member.id]) {
+            var userData = this.users[member.id];
+            return JSON.stringify( {"first seen":userData.firstseen, "last seen":userData.lastseen, "message count":userData.messagecount, "online times":userData.onlinetimes});
         }
-        const stillActive = new DateDiff(time, Date.parse(this.users[member.id]["lastseen"])).minutes() <= 15;
-        if(stillActive) {
-            this.users[member.id]["onlinetimes"]["current"]["until"] = this.users[member.id]["lastseen"];
-        }
-        else {
-            this.users[member.id]["onlinetimes"]["history"].push(this.users[member.id]["onlinetimes"]["current"]);
-            this.users[member.id]["onlinetimes"]["current"] = {};
-        }
+        else
+            return `sorry... ${member.username} I don't know you yet. Please ask again later.`;
     }
 };
