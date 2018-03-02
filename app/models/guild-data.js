@@ -37,9 +37,11 @@ module.exports = class GuildData extends Core.BaseGuildData {
                 if(!this.users[member.id]) {
                     this.initActivityDatastructure(member, now);
                 }
+                if( this.shouldMarkActive(member, now)) {
+                    this.doMarkActive(member);
+                }
                 else if (this.shouldMarkInactive(member, now)) {
                     this.doMarkInactive(member);
-    
                     delete this.users[member.id];
                 }
             }
@@ -47,6 +49,7 @@ module.exports = class GuildData extends Core.BaseGuildData {
     }
 
     initActivityDatastructure(member, now) {
+        this.users[member.id] = {};
         this.users[member.id]["firstseen"] = now;
         this.users[member.id]["lastseen"] = now;
         this.users[member.id]["messagecount"] = 0;
