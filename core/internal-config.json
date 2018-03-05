@@ -1,7 +1,7 @@
 {
     "dbConnectionString": "nedb://guilds-data",
     "neDBCompactionSchedule": "0 0 * * * *",
-    "website": "https://benji7425.github.io",
+    "website": "https://robertsspaceindustries.com/orgs/PROT",
     "discordInvite": "https://discord.gg/SSkbwSJ",
     "debugIgnores": [
         "[ws] [connection] Sending a heartbeat",
