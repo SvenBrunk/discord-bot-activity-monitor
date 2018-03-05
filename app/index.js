@@ -44,8 +44,6 @@ function registerActivity(guild, member, guildData) {
         guildData.users[member.id]["lastseen"] = now; //store now as the latest date this user has interacted
         guildData.save();
 
-        DiscordUtil.dateLog(`${member.user.username} is now active`);
-
         registerOnlineTimes(member, now, guildData);
 
         if (canManageRoles(guildData)) {
