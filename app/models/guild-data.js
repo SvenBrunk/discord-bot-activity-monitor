@@ -23,6 +23,7 @@ module.exports = class GuildData extends Core.BaseGuildData {
 
     checkUsers(client) {
         const guild = client.guilds.get(this.guildID);
+
         if (!guild)
             return;
 
@@ -31,13 +32,13 @@ module.exports = class GuildData extends Core.BaseGuildData {
         if (!role)
             return;
 
-        role.members.forEach(member => {
+        guild.members.forEach(member => {
             //don't ask me why, sometimes member is null, hence the if(member) check
             if (member) {
                 if(!this.users[member.id]) {
                     this.initActivityDatastructure(member, now);
                 }
-                if( this.shouldMarkActive(member, now)) {
+                if( this.shouldMarkActive(member)) {
                     this.doMarkActive(member);
                 }
                 else if (this.shouldMarkInactive(member, now)) {
@@ -50,10 +51,17 @@ module.exports = class GuildData extends Core.BaseGuildData {
 
     initActivityDatastructure(member, now) {
         this.users[member.id] = {};
-        this.users[member.id]["firstseen"] = now;
-        this.users[member.id]["lastseen"] = now;
+        const online = member.presence.status === "online";
+        if (online) {
+            this.users[member.id]["firstseen"] = now;
+            this.users[member.id]["lastseen"] = now;
+        }
+        else {
+            this.users[member.id]["firstseen"] = new Date(2018,1,1);
+            this.users[member.id]["lastseen"] = new Date(2018,1,1);
+        }
         this.users[member.id]["messagecount"] = 0;
-        DiscordUtil.dateLog(`${member.name} is now active`);
+        DiscordUtil.dateLog(`${member.user.username} registered`);
     }
 
     shouldMarkInactive(member, now) {
@@ -66,14 +74,17 @@ module.exports = class GuildData extends Core.BaseGuildData {
         member.removeRole(this.activeRoleID)
             .catch(err => DiscordUtil.dateError("Error removing active role from user " + member.name + " in guild " + member.guild.name, err.message || err));
 
-        if (this.inactiveRoleID && this.inactiveRoleID !== "disabled")
+        if (this.inactiveRoleID && this.inactiveRoleID !== "disabled") {
             member.addRole(this.inactiveRoleID);
+        }
+        DiscordUtil.dateLog(`${member.user.username} is now inactive`);
     }
 
     shouldMarkActive(member) {
         const notAlreadyActive = !member.roles.get(this.activeRoleID);
+        const online = member.presence.status === "online";
 
-        return !this.memberIsIgnored(member) && notAlreadyActive;
+        return !this.memberIsIgnored(member) && notAlreadyActive && online;
     }
 
     doMarkActive(member) {
@@ -83,6 +94,8 @@ module.exports = class GuildData extends Core.BaseGuildData {
         if (this.inactiveRoleID && this.inactiveRoleID !== "disabled")
             member.removeRole(this.inactiveRoleID)
                 .catch(err => DiscordUtil.dateError(`Error removing active role from user ${member.user.username} in guild ${member.guild.name}\n${err.message || err}`));
+
+        DiscordUtil.dateLog(`${member.user.username} is now active`);
     }
 
     memberIsIgnored(member) {
