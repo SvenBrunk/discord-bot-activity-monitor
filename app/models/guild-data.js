@@ -35,13 +35,17 @@ module.exports = class GuildData extends Core.BaseGuildData {
         guild.members.forEach(member => {
             //don't ask me why, sometimes member is null, hence the if(member) check
             if (member) {
+                const online = member.presence.status === "online";
                 if(!this.users[member.id]) {
                     this.initActivityDatastructure(member, now);
                 }
-                if( this.shouldMarkActive(member)) {
+                if(online) {
+                    this.users[member.id]["lastseen"] = now;
+                }
+                if( this.shouldMarkActive(member, online)) {
                     this.doMarkActive(member);
                 }
-                else if (this.shouldMarkInactive(member, now)) {
+                else if (this.shouldMarkInactive(member, now, online)) {
                     this.doMarkInactive(member);
                     delete this.users[member.id];
                 }
@@ -64,10 +68,11 @@ module.exports = class GuildData extends Core.BaseGuildData {
         DiscordUtil.dateLog(`${member.user.username} registered`);
     }
 
-    shouldMarkInactive(member, now) {
+    shouldMarkInactive(member, now, online) {
         const isNowInactive = new DateDiff(now, Date.parse(this.users[member.id]["lastseen"])).days() >= this.inactiveThresholdDays;
+        const notAlreadyInactive = !member.roles.get(this.inactiveRoleID);
 
-        return !this.memberIsIgnored(member) && isNowInactive;
+        return !this.memberIsIgnored(member) && notAlreadyInactive && isNowInactive && !online;
     }
 
     doMarkInactive(member) {
@@ -80,9 +85,8 @@ module.exports = class GuildData extends Core.BaseGuildData {
         DiscordUtil.dateLog(`${member.user.username} is now inactive`);
     }
 
-    shouldMarkActive(member) {
+    shouldMarkActive(member, online) {
         const notAlreadyActive = !member.roles.get(this.activeRoleID);
-        const online = member.presence.status === "online";
 
         return !this.memberIsIgnored(member) && notAlreadyActive && online;
     }
