@@ -34,13 +34,14 @@ module.exports = class GuildData extends Core.BaseGuildData {
 
         guild.members.forEach(member => {
             //don't ask me why, sometimes member is null, hence the if(member) check
-            if (member) {
+            if (member && !this.memberIsIgnored(member)) {
                 const online = member.presence.status === "online";
                 if(!this.users[member.id]) {
                     this.initActivityDatastructure(member, now);
                 }
                 if(online) {
                     this.users[member.id]["lastseen"] = now;
+                    this.save();
                 }
                 if( this.shouldMarkActive(member, online)) {
                     this.doMarkActive(member);
@@ -48,6 +49,7 @@ module.exports = class GuildData extends Core.BaseGuildData {
                 else if (this.shouldMarkInactive(member, now, online)) {
                     this.doMarkInactive(member);
                     delete this.users[member.id];
+                    this.save();
                 }
             }
         });
@@ -65,14 +67,17 @@ module.exports = class GuildData extends Core.BaseGuildData {
             this.users[member.id]["lastseen"] = new Date(2018,1,1);
         }
         this.users[member.id]["messagecount"] = 0;
+
         DiscordUtil.dateLog(`${member.user.username} registered`);
+        this.save();
     }
 
     shouldMarkInactive(member, now, online) {
+        if(this.memberIsIgnored(member)) return false;
         const isNowInactive = new DateDiff(now, Date.parse(this.users[member.id]["lastseen"])).days() >= this.inactiveThresholdDays;
         const notAlreadyInactive = !member.roles.get(this.inactiveRoleID);
 
-        return !this.memberIsIgnored(member) && notAlreadyInactive && isNowInactive && !online;
+        return notAlreadyInactive && isNowInactive && !online;
     }
 
     doMarkInactive(member) {
